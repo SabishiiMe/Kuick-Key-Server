@@ -1,9 +1,35 @@
-// Express
+require("dotenv").config();
 const express = require("express");
 const app = express();
+const http = require("http");
+const server = http.createServer(app)
+const { Server } = require("socket.io");
+const { Datastore } = require("@google-cloud/datastore");
+const { Storage } = require("@google-cloud/storage");
+const helpers = require("./helpers.js")
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CLIENTURL,
+        methods: ["GET"]
+        
+    }
+});
 
+// Add Access Control Allow Origin headers
+app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", process.env.CLIENTURL);
+    res.header(
+      "Access-Control-Allow-Headers"
+    );
+    next();
+  });
 
-app.get("/test", (req, res) => {
+// Variables
+const datastore = new Datastore()
+const storage = new Storage()
+const PORT = process.env.PORT; 
+
+app.get("/soup", (req, res) => {
     res.json(
         {
             "soup": "worm"
@@ -11,17 +37,11 @@ app.get("/test", (req, res) => {
     )
 })
 
-app.listen(4311, () => {console.log("Server is up and running on port 4311!")})
-
-// -------------------------------------------------------------------------------------------
-// Socket IO 
-const io = require("socket.io")(4312, {
-    cors: {
-        origin: ["http://localhost:3000"],
-    }
+// Grabs the leaderboard information on client start
+app.get("/leaderboard", async (req, res) => {
+    let leaderboardEntries = await helpers.fetchLeaderboardEntries(datastore);
+    return res.json(leaderboardEntries)
 })
-
-
 
 io.on("connection", socket => {
     
@@ -43,4 +63,8 @@ io.on("connection", socket => {
         io.to(session).emit("players-session", clients.size)
 
     })
+})
+
+server.listen(PORT, () => {
+    console.log("Listening on " + PORT);
 })
